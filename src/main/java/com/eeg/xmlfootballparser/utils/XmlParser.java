@@ -6,12 +6,8 @@ import com.eeg.xmlfootballparser.enums.Status;
 import com.eeg.xmlfootballparser.models.Player;
 import com.eeg.xmlfootballparser.models.Team;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
-import org.w3c.dom.Document;
-import org.w3c.dom.NamedNodeMap;
-import org.w3c.dom.NodeList;
+import org.w3c.dom.*;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -19,85 +15,146 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 @Component
-public class XmlParser implements ApplicationRunner {
+public class XmlParser {
 
     @Value("${xml-path}")
 	private String xmlPath;
 
+    /**
+     * XML Constants
+     * */
+    private static final String PLAYER = "Player";
+    private static final String POSITION = "Position";
+    private static final String UID = "uID";
+    private static final String FIRST = "First";
+    private static final String KNOWN = "Known";
+    private static final String LAST = "Last";
+    private static final String TEAM_DATA = "TeamData";
+    private static final String SCORE = "Score";
+    private static final String SIDE = "Side";
+    private static final String TEAM_REF = "TeamRef";
+    private static final String MATCH_PLAYER = "MatchPlayer";
+    private static final String STAT = "Stat";
+    private static final String TYPE = "Type";
+    private static final String CAPTAIN = "Captain";
+    private static final String PLAYER_REF = "PlayerRef";
+    private static final String SHIRT_NUMBER = "ShirtNumber";
+    private static final String STATUS = "Status";
+
+    /**
+     * Package Private
+     * DOM File Loader. Loads physical file into memory as a document.
+     * @return {@link Document} */
     private Document loadFile() throws ParserConfigurationException, IOException, SAXException {
         DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-        Document doc = builder.parse(new File(xmlPath));
+        Document doc = builder.parse(new File(this.xmlPath));
         doc.getDocumentElement().normalize();
         return doc;
     }
 
-    private List<Team<Player>> deserialize() throws ParserConfigurationException, IOException, SAXException {
-        Document doc = loadFile();
-        NodeList teamData = doc.getElementsByTagName("TeamData");
+    /**
+     * Package Private
+     * Enriches the player object with metadata from a DOM document. This method is mutable, and will operate on the input parameter!
+     * @param player - {@link Player}
+     * @param doc - {@link Document}
+     * */
+    private void enrichPlayer(Player player, Document doc){
+        NodeList playerNodes = doc.getElementsByTagName(PLAYER);
+        for (int i=0; i<playerNodes.getLength(); i++) {
+            Node playerNode = playerNodes.item(i);
+            if (playerNode.getNodeType() == Node.ELEMENT_NODE){
+                Element playerElement = (Element) playerNode;
+                Position position = Position.valueOf(playerElement.getAttribute(POSITION).toUpperCase());
+                String uID = playerElement.getAttribute(UID);
+                if (player.getPlayerRef().equals(uID) && player.getPosition().equals(position)){
+                    NodeList firstNameNode = playerElement.getElementsByTagName(FIRST);
+                    NodeList knownNameNode = playerElement.getElementsByTagName(KNOWN);
+                    NodeList lastNameNode = playerElement.getElementsByTagName(LAST);
 
-        List<Team<Player>> teamsList = new ArrayList<>();
-        List<Player> playerList = new ArrayList<>();
-        for (int i=0; i<teamData.getLength(); i++) {
-            NodeList teamDataNodes = teamData.item(i).getChildNodes();
+                    String firstName = firstNameNode.item(0).getTextContent();
+                    String lastName = lastNameNode.item(0).getTextContent();
+                    String known = null;
+                    if (knownNameNode.getLength() != 0)
+                        known = knownNameNode.item(0).getTextContent();
 
-//            for (int z=0;z<=teamDataNodes.getLength();z++){
-//                if (z==0){
-//
-//                }
-//            }
-
-            for (int j=0; j<=teamDataNodes.getLength();j++ ){
-                NamedNodeMap playerAttributes = teamDataNodes.item(i).getAttributes();
-                HashMap<String, Short> statsMap = new HashMap<>();
-                NodeList stats = teamDataNodes.item(i).getChildNodes();
-
-                for (int z=0;z<stats.getLength();z++)
-                    statsMap.put(stats.item(z).getNodeName(), Short.parseShort(stats.item(z).getNodeValue()));
-
-                Player player;
-                if (playerAttributes.item(0).getNodeName().equals("Captain")){
-                    player = Player.builder()
-                            .isCaptain(true)
-                            .playerRef(playerAttributes.item(1).getNodeValue())
-                            .position(Position.valueOf(playerAttributes.item(2).getNodeValue().toUpperCase()))
-                            .shirtNumber(Short.parseShort(playerAttributes.item(3).getNodeValue()))
-                            .status(Status.valueOf(playerAttributes.item(4).getNodeValue().toUpperCase()))
-                            .statistics(statsMap)
-                            .build();
-                }else{
-                    player = Player.builder()
-                            .isCaptain(false)
-                            .playerRef(playerAttributes.item(0).getNodeValue())
-                            .position(Position.valueOf(playerAttributes.item(1).getNodeValue().toUpperCase()))
-                            .shirtNumber(Short.parseShort(playerAttributes.item(2).getNodeValue()))
-                            .status(Status.valueOf(playerAttributes.item(3).getNodeValue().toUpperCase()))
-                            .statistics(statsMap)
-                            .build();
+                    player.setFirstName(firstName);
+                    player.setLastName(lastName);
+                    player.setKnown(known);
                 }
-                playerList.add(player);
             }
-            NamedNodeMap teamAttributes = teamData.item(i).getAttributes();
-            Team<Player> team = Team.builder()
-                    .players(playerList)
-                    .score(Short.parseShort(teamAttributes.item(0).getNodeValue()))
-                    .side(Side.valueOf(teamAttributes.item(1).getNodeValue()))
-                    .teamRef(teamAttributes.item(2).getNodeValue())
-                    //.statistics()
-                    .build();
-            teamsList.add(team);
         }
-        return teamsList;
     }
 
-    @Override
-    public void run(ApplicationArguments args) throws Exception {
-        List<Team<Player>> teamsList = deserialize();
-        for (Team<Player> team : teamsList)
-            System.out.println(team.toString());
+    /**
+     * Package Protected
+     * Main class method. Deserializes the XML file contents into JAVA in-memory POJOs.
+     * @return {@link List} of type {@link Team}, type generics {@link Player}.
+     * */
+    protected List<Team<Player>> deserialize() throws ParserConfigurationException, IOException, SAXException {
+        Document doc = loadFile();
+        NodeList teamDataNodes = doc.getElementsByTagName(TEAM_DATA);
+
+        List<Team<Player>> teamsList = new ArrayList<>();
+        HashMap<String, Float> teamStatsMap = new HashMap<>();
+        for (int i=0; i<teamDataNodes.getLength(); i++) {
+            List<Player> playerList = new ArrayList<>();
+            Node teamNode = teamDataNodes.item(i);
+            if (teamNode.getNodeType() == Node.ELEMENT_NODE){
+                Element teamNodeElement = (Element) teamNode;
+                short score = Short.parseShort(teamNodeElement.getAttribute(SCORE));
+                Side side = Side.valueOf(teamNodeElement.getAttribute(SIDE).toUpperCase());
+                String teamRef = teamNodeElement.getAttribute(TEAM_REF);
+
+                NodeList matchPlayers = teamNodeElement.getElementsByTagName(MATCH_PLAYER);
+                for (int j=0; j<matchPlayers.getLength();j++ ){
+                    Node playerNode = matchPlayers.item(j);
+                    if (playerNode.getNodeType() == Node.ELEMENT_NODE) {
+                        Element playerNodeElement = (Element) playerNode;
+
+                        NodeList playerStats = playerNodeElement.getElementsByTagName(STAT);
+                        HashMap<String, Short> playerStatsMap = new HashMap<>();
+                        for (int z=0;z<playerStats.getLength();z++){
+                            Node statNode = playerStats.item(z);
+                            if (statNode.getNodeType() == Node.ELEMENT_NODE){
+                                Element statNodeElement = (Element) statNode;
+                                playerStatsMap.put(statNodeElement.getAttribute(TYPE), Short.parseShort(statNode.getTextContent()));
+                            }
+                        }
+
+                        Player player = Player.builder()
+                                .isCaptain(playerNodeElement.hasAttribute(CAPTAIN))
+                                .playerRef(playerNodeElement.getAttribute(PLAYER_REF))
+                                .position(Position.valueOf(playerNodeElement.getAttribute(POSITION).toUpperCase()))
+                                .shirtNumber(Short.parseShort(playerNodeElement.getAttribute(SHIRT_NUMBER)))
+                                .status(Status.valueOf(playerNodeElement.getAttribute(STATUS).toUpperCase()))
+                                .statistics(playerStatsMap)
+                                .build();
+                        this.enrichPlayer(player, doc);
+                        playerList.add(player);
+                    }
+                }
+
+                NodeList teamStats = teamNodeElement.getElementsByTagName(STAT);
+                for (int j=0; j<teamStats.getLength();j++ ){
+                    Node statNode = teamStats.item(j);
+                    if (statNode.getNodeType() == Node.ELEMENT_NODE){
+                        Element statNodeElement = (Element) statNode;
+                        teamStatsMap.put(statNodeElement.getAttribute(TYPE), Float.parseFloat(statNode.getTextContent()));
+                    }
+                }
+                Team<Player> team = Team.builder()
+                        .players(playerList)
+                        .score(score)
+                        .side(side)
+                        .teamRef(teamRef)
+                        .statistics(teamStatsMap)
+                        .build();
+                teamsList.add(team);
+            }
+        }
+        return teamsList;
     }
 }

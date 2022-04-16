@@ -9,6 +9,9 @@ import lombok.ToString;
 
 import java.util.HashMap;
 
+/**
+ * JAVA POJO (Team). Utilizes lombok to avoid common boilerplate code.
+ * */
 @Builder
 @Getter
 @Setter
@@ -21,5 +24,6 @@ public class Player {
     private Status status;
     private String firstName;
     private String lastName;
+    private String known;
     private HashMap<String, Short> statistics;
 }

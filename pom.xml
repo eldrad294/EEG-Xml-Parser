@@ -43,6 +43,9 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<mainClass>com.eeg.xmlfootballparser.XmlFootballParserApplication</mainClass>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>
