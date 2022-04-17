@@ -6,5 +6,6 @@ public enum Position {
     MIDFIELDER,
     STRIKER,
     SUBSTITUTE,
-    MANAGER
+    MANAGER,
+    FORWARD
 }

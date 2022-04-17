@@ -16,10 +16,11 @@ import java.util.HashMap;
 @Getter
 @Setter
 @ToString
-public class Player {
+public class Player{
     private String playerRef;
     private boolean isCaptain;
     private Position position;
+    private Position subPosition;
     private short shirtNumber;
     private Status status;
     private String firstName;

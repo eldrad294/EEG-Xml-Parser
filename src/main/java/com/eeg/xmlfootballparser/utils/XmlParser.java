@@ -43,6 +43,9 @@ public class XmlParser {
     private static final String PLAYER_REF = "PlayerRef";
     private static final String SHIRT_NUMBER = "ShirtNumber";
     private static final String STATUS = "Status";
+    private static final String SUB_POSITION = "SubPosition";
+    private static final String TEAM = "Team";
+    private static final String NAME = "Name";
 
     /**
      * Package Private
@@ -53,6 +56,29 @@ public class XmlParser {
         Document doc = builder.parse(new File(this.xmlPath));
         doc.getDocumentElement().normalize();
         return doc;
+    }
+
+    /**
+     * Package Private
+     * Enriches the team object with metadata from a DOM document. This method is mutable, and will operate on the input parameter!
+     * @param team - {@link Team} of type generics {@link Player}
+     * @param doc - {@link Document}
+     * */
+    private void enrichTeam(Team<Player> team, Document doc){
+        NodeList teamNodes = doc.getElementsByTagName(TEAM);
+        for (int i=0; i<teamNodes.getLength(); i++) {
+            Node teamNode = teamNodes.item(i);
+            if (teamNode.getNodeType() == Node.ELEMENT_NODE){
+                Element teamElement = (Element) teamNode;
+                String uID = teamElement.getAttribute(UID);
+                if (team.getTeamRef().equals(uID)) {
+                    NodeList teamNameNode = teamElement.getElementsByTagName(NAME);
+                    String teamName = teamNameNode.item(0).getTextContent();
+                    team.setName(teamName);
+                    break;
+                }
+            }
+        }
     }
 
     /**
@@ -83,22 +109,21 @@ public class XmlParser {
                     player.setFirstName(firstName);
                     player.setLastName(lastName);
                     player.setKnown(known);
+                    break;
                 }
             }
         }
     }
 
     /**
-     * Package Protected
      * Main class method. Deserializes the XML file contents into JAVA in-memory POJOs.
      * @return {@link List} of type {@link Team}, type generics {@link Player}.
      * */
-    protected List<Team<Player>> deserialize() throws ParserConfigurationException, IOException, SAXException {
+    public List<Team<Player>> deserialize() throws ParserConfigurationException, IOException, SAXException {
         Document doc = loadFile();
         NodeList teamDataNodes = doc.getElementsByTagName(TEAM_DATA);
 
         List<Team<Player>> teamsList = new ArrayList<>();
-        HashMap<String, Float> teamStatsMap = new HashMap<>();
         for (int i=0; i<teamDataNodes.getLength(); i++) {
             List<Player> playerList = new ArrayList<>();
             Node teamNode = teamDataNodes.item(i);
@@ -124,10 +149,15 @@ public class XmlParser {
                             }
                         }
 
+                        Position subPosition = null;
+                        if (playerNodeElement.hasAttribute(SUB_POSITION))
+                            subPosition = Position.valueOf(playerNodeElement.getAttribute(SUB_POSITION).toUpperCase());
+
                         Player player = Player.builder()
                                 .isCaptain(playerNodeElement.hasAttribute(CAPTAIN))
                                 .playerRef(playerNodeElement.getAttribute(PLAYER_REF))
                                 .position(Position.valueOf(playerNodeElement.getAttribute(POSITION).toUpperCase()))
+                                .subPosition(subPosition)
                                 .shirtNumber(Short.parseShort(playerNodeElement.getAttribute(SHIRT_NUMBER)))
                                 .status(Status.valueOf(playerNodeElement.getAttribute(STATUS).toUpperCase()))
                                 .statistics(playerStatsMap)
@@ -137,6 +167,7 @@ public class XmlParser {
                     }
                 }
 
+                HashMap<String, Float> teamStatsMap = new HashMap<>();
                 NodeList teamStats = teamNodeElement.getElementsByTagName(STAT);
                 for (int j=0; j<teamStats.getLength();j++ ){
                     Node statNode = teamStats.item(j);
@@ -152,6 +183,7 @@ public class XmlParser {
                         .teamRef(teamRef)
                         .statistics(teamStatsMap)
                         .build();
+                this.enrichTeam(team, doc);
                 teamsList.add(team);
             }
         }
