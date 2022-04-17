@@ -2,10 +2,7 @@ package com.eeg.xmlfootballparser.models;
 
 import com.eeg.xmlfootballparser.enums.Position;
 import com.eeg.xmlfootballparser.enums.Status;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
 
 import java.util.HashMap;
 
@@ -16,6 +13,7 @@ import java.util.HashMap;
 @Getter
 @Setter
 @ToString
+@AllArgsConstructor
 public class Player{
     private String playerRef;
     private boolean isCaptain;
@@ -26,5 +24,5 @@ public class Player{
     private String firstName;
     private String lastName;
     private String known;
-    private HashMap<String, Short> statistics;
+    private HashMap<String, Short> statistics;  // Maybe to consider INT / BIGINT / LONG for statistics of a larger size.
 }

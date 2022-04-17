@@ -2,14 +2,16 @@ package com.eeg.xmlfootballparser.utils;
 
 import com.eeg.xmlfootballparser.exceptions.XmlValidatorException;
 import com.eeg.xmlfootballparser.models.Player;
-import com.eeg.xmlfootballparser.models.SortPlayer;
+import com.eeg.xmlfootballparser.models.reporting.SortPlayer;
 import com.eeg.xmlfootballparser.models.Team;
+import com.eeg.xmlfootballparser.models.reporting.TeamSum;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -63,8 +65,18 @@ public class StatisticsService {
 
         //Reports Statistics
         this.statisticSorter(playersList, this.statistic);
-        this.statisticPlayerSum(teamsList, this.statistic);
-        this.statisticTeam(teamsList, this.statistic);
+        List<TeamSum> playerStatisticSumList = this.statisticPlayerSum(teamsList, this.statistic);
+        for (TeamSum teamSum:playerStatisticSumList)
+            System.out.printf("%s; %s - %f%n", teamSum.getSide(), teamSum.getName(), teamSum.getStatisticSum());
+
+        /* *
+        Reports the team stats, which is exactly the same as summing them up individually on a player level (refer
+        to above). This logic is used as an integration test to make sure the player stat summations reconcile with
+        those reported on a team level.
+         * */
+//        List<TeamSum> teamStatisticSumList = this.statisticTeam(teamsList, this.statistic);
+//        for (TeamSum teamSum:teamStatisticSumList)
+//            System.out.printf("%s; %s - %f%n", teamSum.getSide(), teamSum.getName(), teamSum.getStatisticSum());
     }
 
     /**
@@ -72,7 +84,7 @@ public class StatisticsService {
      * param players - {@link List} of type {@link Player}. Contains all the players (regardless of team).
      * param statistic - {@link String}, denoting the statistic.
      * */
-    private void statisticSorter(List<Player> players, String statistic){
+    public void statisticSorter(List<Player> players, String statistic){
         List<SortPlayer> sortedPlayers = players.stream().map(x -> new SortPlayer(x, statistic)).collect(Collectors.toList());
         AtomicInteger i = new AtomicInteger();
         sortedPlayers.stream()
@@ -87,15 +99,23 @@ public class StatisticsService {
      * param teams - {@link List} of type {@link Team} containing {@link Player}. Contains all the players (regardless of team).
      * param statistic - {@link String}, denoting the statistic.
      * */
-    private void statisticPlayerSum(List<Team<Player>> teams, String statistic){
+    public List<TeamSum> statisticPlayerSum(List<Team<Player>> teams, String statistic){
+        List<TeamSum> teamSumList = new ArrayList<>();
         for(Team<Player> team : teams){
             int statisticSum = 0;
             for(Player player : team.getPlayers()){
                 if (player.getStatistics().containsKey(statistic))
                     statisticSum += player.getStatistics().get(statistic);
             }
-            System.out.printf("%s; %s - %o%n", team.getSide(), team.getName(), statisticSum);
+            TeamSum teamSum = TeamSum.builder()
+                    .name(team.getName())
+                    .side(team.getSide())
+                    .statisticSum((float)statisticSum)
+                    .build();
+            teamSumList.add(teamSum);
+
         }
+        return teamSumList;
     }
 
     /**
@@ -103,10 +123,18 @@ public class StatisticsService {
      * param teams - {@link List} of type {@link Team} containing {@link Player}. Contains all the players (regardless of team).
      * param statistic - {@link String}, denoting the statistic.
      * */
-    private void statisticTeam(List<Team<Player>> teams, String statistic){
+    public List<TeamSum> statisticTeam(List<Team<Player>> teams, String statistic){
+        List<TeamSum> teamSumList = new ArrayList<>();
         for(Team<Player> team : teams){
-            if (team.getStatistics().containsKey(statistic))
-                System.out.printf("%s; %s - %f%n", team.getSide(), team.getName(), team.getStatistics().get(statistic));
+            if (team.getStatistics().containsKey(statistic)) {
+                TeamSum teamSum = TeamSum.builder()
+                        .name(team.getName())
+                        .side(team.getSide())
+                        .statisticSum(team.getStatistics().get(statistic))
+                        .build();
+                teamSumList.add(teamSum);
+            }
         }
+        return teamSumList;
     }
 }

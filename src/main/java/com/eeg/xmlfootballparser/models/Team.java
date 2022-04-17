@@ -21,6 +21,6 @@ public class Team<P extends Player> {
     private short score;
     private Side side;
     private List<P> players;
-    private HashMap<String, Float> statistics;
+    private HashMap<String, Float> statistics;   // I chose float since one of the team level statistics is a floating point value.
     private String name;
 }
